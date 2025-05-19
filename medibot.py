@@ -79,7 +79,9 @@ st.markdown("""
         margin-bottom: 20px;
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 15px;
+        text-align: center;
     }
     
     .header-text {
@@ -124,15 +126,51 @@ st.markdown("""
     /* Sidebar styling */
     .css-1d391kg {
         background-color: #1a1f2d;
+        border-right: 2px solid rgba(74, 158, 255, 0.2);
     }
 
     /* Override sidebar background */
     section[data-testid="stSidebar"] {
         background-color: #1a1f2d !important;
+        border-right: 2px solid rgba(74, 158, 255, 0.2);
+        padding-right: 15px;
     }
 
     div[class*="stSidebar"] {
         background-color: #1a1f2d !important;
+        border-right: 2px solid rgba(74, 158, 255, 0.2);
+    }
+
+    /* Main content area styling */
+    .main-content {
+        padding-left: 20px;
+        border-left: 2px solid rgba(74, 158, 255, 0.2);
+        margin-left: 15px;
+    }
+
+    /* Sidebar header styling */
+    .sidebar-header {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid rgba(74, 158, 255, 0.2);
+    }
+
+    /* Response info card styling */
+    .response-info-card {
+        background: rgba(30, 40, 70, 0.4);
+        padding: 15px;
+        border-radius: 15px;
+        margin: 10px 0;
+        border: 1px solid rgba(74, 158, 255, 0.1);
+    }
+
+    /* Chat container styling */
+    .chat-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #1a1f2d !important;
+        border-radius: 15px;
     }
     
     /* Input box styling */
@@ -224,22 +262,47 @@ def load_llm(huggingface_repo_id, HF_TOKEN):
     )
     return llm
 
-def calculate_confidence_score(response_type, response_time):
+def calculate_confidence_score(response_type, response_content=None):
     """
-    Calculate a confidence score based on response type and time
+    Calculate a confidence score based on response type and content quality
     Returns a score between 0 and 100
     """
     base_scores = {
-        'Greeting': 98,  # Simple responses have high accuracy
-        'Feedback': 98,
-        'Medical Query': 85,  # More complex responses start with lower base score
+        'Greeting': 95,  # Simple responses have high accuracy
+        'Feedback': 95,
+        'Medical Query': 85,  # Medical queries start with base score
         'Error': 0
     }
     
-    # Adjust score based on response time
-    time_penalty = min(10, max(0, response_time - 1)) * 2  # 2% penalty per second over 1s
+    # Get base score for the response type
+    score = base_scores.get(response_type, 70)
     
-    final_score = max(0, min(100, base_scores.get(response_type, 70) - time_penalty))
+    # For medical queries, adjust score based on response content
+    if response_type == 'Medical Query' and response_content:
+        # Penalize if response indicates lack of information
+        if "don't have enough medical information" in response_content.lower():
+            score -= 20
+        
+        # Penalize if response is too short (likely incomplete)
+        if len(response_content.split()) < 10:
+            score -= 15
+            
+        # Penalize if response contains uncertainty indicators
+        uncertainty_phrases = ["i'm not sure", "i don't know", "i cannot", "i'm unable to"]
+        if any(phrase in response_content.lower() for phrase in uncertainty_phrases):
+            score -= 10
+            
+        # Bonus for comprehensive responses
+        if len(response_content.split()) > 50:
+            score += 5
+            
+        # Bonus for responses that include specific medical terms
+        medical_terms = ["treatment", "symptoms", "diagnosis", "medication", "therapy", "prevention"]
+        if any(term in response_content.lower() for term in medical_terms):
+            score += 5
+    
+    # Ensure score stays within 0-100 range
+    final_score = max(0, min(100, score))
     return round(final_score, 1)
 
 def main():
@@ -255,18 +318,23 @@ def main():
     sidebar = st.sidebar
     with sidebar:
         st.markdown("""
-            <div style='display: flex; align-items: center; gap: 10px; margin-bottom: 20px;'>
-                <span style='font-size: 24px;'>⌛</span>
-                <h2 style='color: #4a9eff; margin: 0;'>Response Information</h2>
+            <div class='sidebar-header'>
+                <div style='display: flex; align-items: center; gap: 10px;'>
+                    <span style='font-size: 24px;'>📊</span>
+                    <h2 style='color: #4a9eff; margin: 0;'>Response Analytics</h2>
+                </div>
             </div>
         """, unsafe_allow_html=True)
+
+    # Main content area
+    st.markdown("<div class='main-content'>", unsafe_allow_html=True)
 
     # Header card
     st.markdown("""
         <div class='header-card'>
-            <div class='header-title' align="center">
-                <span style='font-size: 1.5em;'>🏥</span>
-                Your Personal Health Assistant
+            <div class='header-title'>
+                <span style='font-size: 1.5em; display: inline-flex; align-items: center;'>🏥</span>
+                <span style='display: inline-flex; align-items: center;'>Your Personal Health Assistant</span>
             </div>
             <div class='header-text'>
                 <p>I'm here to provide helpful information about health and wellness in a clear, friendly way.</p>
@@ -275,8 +343,8 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
-    # Messages container
-    st.markdown("<div class='messages-container'>", unsafe_allow_html=True)
+    # Chat container
+    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 
     # Display chat messages
     for message in st.session_state.messages:
@@ -295,7 +363,8 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)  # Close chat container
+    st.markdown("</div>", unsafe_allow_html=True)  # Close main content
 
     # Chat input
     prompt = st.chat_input("How can I help you with your health questions today?")
@@ -324,7 +393,7 @@ def main():
             
             end_time = time.time()
             response_time = end_time - start_time
-            confidence_score = calculate_confidence_score('Greeting', response_time)
+            confidence_score = calculate_confidence_score('Greeting', greeting_response)
             st.session_state.response_times.append({
                 'time': response_time,
                 'timestamp': datetime.now().strftime("%H:%M:%S"),
@@ -349,7 +418,7 @@ def main():
             
             end_time = time.time()
             response_time = end_time - start_time
-            confidence_score = calculate_confidence_score('Feedback', response_time)
+            confidence_score = calculate_confidence_score('Feedback', feedback_response)
             st.session_state.response_times.append({
                 'time': response_time,
                 'timestamp': datetime.now().strftime("%H:%M:%S"),
@@ -402,7 +471,7 @@ def main():
 
             end_time = time.time()
             response_time = end_time - start_time
-            confidence_score = calculate_confidence_score('Medical Query', response_time)
+            confidence_score = calculate_confidence_score('Medical Query', result)
             st.session_state.response_times.append({
                 'time': response_time,
                 'timestamp': datetime.now().strftime("%H:%M:%S"),
@@ -418,7 +487,7 @@ def main():
             st.error(f"Error: {str(e)}")
             end_time = time.time()
             response_time = end_time - start_time
-            confidence_score = calculate_confidence_score('Error', response_time)
+            confidence_score = calculate_confidence_score('Error', str(e))
             st.session_state.response_times.append({
                 'time': response_time,
                 'timestamp': datetime.now().strftime("%H:%M:%S"),
@@ -435,17 +504,20 @@ def display_response_info():
     with st.sidebar:
         if st.session_state.response_times:
             st.markdown("""
-                <div style='background: rgba(30, 40, 70, 0.4); padding: 15px; border-radius: 15px; margin-top: 20px;'>
+                <div class='response-info-card'>
                     <h3 style='color: #4a9eff; margin: 0 0 10px 0; text-align: center;'>Recent Interactions</h3>
                 </div>
             """, unsafe_allow_html=True)
             
             for time_entry in reversed(st.session_state.response_times[-5:]):
-                confidence_score = calculate_confidence_score(time_entry.get('type', 'General'), time_entry['time'])
+                confidence_score = calculate_confidence_score(
+                    time_entry.get('type', 'General'),
+                    time_entry.get('content', None)
+                )
                 score_color = '#4CAF50' if confidence_score >= 90 else '#FFA726' if confidence_score >= 70 else '#FF5252'
                 
                 st.markdown(f"""
-                    <div style='background: rgba(74, 158, 255, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0; color: white;'>
+                    <div class='response-info-card'>
                         <div style='margin-bottom: 5px; color: #4a9eff;'>Prompt:</div>
                         <div style='margin-bottom: 10px; font-size: 0.9em; word-wrap: break-word;'>{time_entry.get('prompt', 'N/A')[:50]}{'...' if len(time_entry.get('prompt', '')) > 50 else ''}</div>
                         <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
@@ -471,13 +543,13 @@ def display_response_info():
                 """, unsafe_allow_html=True)
 
             # Add performance metrics with accuracy
-            total_accuracy = sum(calculate_confidence_score(entry.get('type', 'General'), entry['time']) 
+            total_accuracy = sum(calculate_confidence_score(entry.get('type', 'General'), entry.get('content', None)) 
                                for entry in st.session_state.response_times)
             avg_accuracy = total_accuracy / len(st.session_state.response_times)
             avg_time = sum(entry['time'] for entry in st.session_state.response_times) / len(st.session_state.response_times)
             
             st.markdown(f"""
-                <div style='background: rgba(30, 40, 70, 0.4); padding: 15px; border-radius: 15px; margin-top: 20px;'>
+                <div class='response-info-card'>
                     <h4 style='color: #4a9eff; margin: 0 0 10px 0; text-align: center;'>Performance Metrics</h4>
                     <div style='text-align: center; color: white;'>
                         <div style='margin-bottom: 10px;'>

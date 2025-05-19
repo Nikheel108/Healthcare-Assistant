@@ -14,17 +14,56 @@ st.set_page_config(
     page_title="Healthcare Assistant",
     page_icon="➕",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'About': 'Healthcare Assistant powered by AI',
+    }
 )
+
+# Enable dark theme by default
+st.markdown("""
+    <script>
+        var observer = new MutationObserver(function(mutations) {
+            if (document.querySelector('.stApp')) {
+                document.querySelector('body').classList.add('dark');
+                observer.disconnect();
+            }
+        });
+        
+        observer.observe(document, {childList: true, subtree: true});
+    </script>
+""", unsafe_allow_html=True)
 
 # Custom CSS for styling
 st.markdown("""
     <style>
-    /* Main background */
+    /* Main background and base styles */
     .stApp {
-        background-color: #1a1f2d;
+        background-color: #1a1f2d !important;
     }
     
+    /* Override Streamlit's default white background */
+    .st-emotion-cache-eczf16 {
+        background-color: #1a1f2d !important;
+    }
+    
+    .st-emotion-cache-18ni7ap {
+        background-color: #1a1f2d !important;
+    }
+
+    .st-emotion-cache-6qob1r {
+        background-color: #1a1f2d !important;
+    }
+
+    .st-emotion-cache-ue6h4q {
+        color: #ffffff !important;
+    }
+
+    /* Main content area */
+    .main {
+        background-color: #1a1f2d !important;
+    }
+
     /* Header card styling */
     .header-card {
         background: rgba(30, 40, 70, 0.4);
@@ -86,6 +125,15 @@ st.markdown("""
     .css-1d391kg {
         background-color: #1a1f2d;
     }
+
+    /* Override sidebar background */
+    section[data-testid="stSidebar"] {
+        background-color: #1a1f2d !important;
+    }
+
+    div[class*="stSidebar"] {
+        background-color: #1a1f2d !important;
+    }
     
     /* Input box styling */
     .stTextInput > div > div > input {
@@ -118,7 +166,7 @@ st.markdown("""
     
     /* Streamlit elements background */
     .st-emotion-cache-1y4p8pa {
-        background-color: transparent;
+        background-color: transparent !important;
     }
 
     /* Error message styling */
@@ -134,6 +182,21 @@ st.markdown("""
         max-width: 1000px;
         margin: 0 auto;
         padding: 20px;
+        background-color: #1a1f2d !important;
+    }
+
+    /* Additional Streamlit overrides */
+    .st-emotion-cache-1gulkj7 {
+        background-color: #1a1f2d !important;
+    }
+
+    .st-emotion-cache-1wmy9hl {
+        background-color: #1a1f2d !important;
+    }
+
+    /* Ensure all text remains visible */
+    .st-emotion-cache-183lzff {
+        color: #ffffff;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -197,74 +260,6 @@ def main():
                 <h2 style='color: #4a9eff; margin: 0;'>Response Information</h2>
             </div>
         """, unsafe_allow_html=True)
-        
-        if st.session_state.response_times:
-            st.markdown("""
-                <div style='background: rgba(30, 40, 70, 0.4); padding: 15px; border-radius: 15px; margin-top: 20px;'>
-                    <h3 style='color: #4a9eff; margin: 0 0 10px 0; text-align: center;'>Recent Interactions</h3>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            for time_entry in reversed(st.session_state.response_times[-5:]):
-                confidence_score = calculate_confidence_score(time_entry.get('type', 'General'), time_entry['time'])
-                score_color = '#4CAF50' if confidence_score >= 90 else '#FFA726' if confidence_score >= 70 else '#FF5252'
-                
-                st.markdown(f"""
-                    <div style='background: rgba(74, 158, 255, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0; color: white;'>
-                        <div style='margin-bottom: 5px; color: #4a9eff;'>Prompt:</div>
-                        <div style='margin-bottom: 10px; font-size: 0.9em; word-wrap: break-word;'>{time_entry.get('prompt', 'N/A')[:50]}{'...' if len(time_entry.get('prompt', '')) > 50 else ''}</div>
-                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
-                            <div>
-                                <span style='color: #4a9eff;'>⏱️ Response Time:</span>
-                                <span style='color: #ffffff; font-family: monospace;'>{time_entry['time']:.3f}s</span>
-                            </div>
-                            <div>
-                                <span style='color: #4a9eff;'>🎯 Accuracy:</span>
-                                <span style='color: {score_color}; font-family: monospace; font-weight: bold;'>{confidence_score}%</span>
-                            </div>
-                        </div>
-                        <div style='display: flex; justify-content: space-between; align-items: center;'>
-                            <div style='color: #8b95a9; font-size: 0.9em;'>
-                                <span style='color: #4a9eff;'>📋</span> {time_entry.get('type', 'General')}
-                            </div>
-                            <div>
-                                <span style='color: #4a9eff;'>🕒</span>
-                                <span style='color: #8b95a9; font-size: 0.9em;'>{time_entry['timestamp']}</span>
-                            </div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            # Add performance metrics with accuracy
-            total_accuracy = sum(calculate_confidence_score(entry.get('type', 'General'), entry['time']) 
-                               for entry in st.session_state.response_times)
-            avg_accuracy = total_accuracy / len(st.session_state.response_times)
-            avg_time = sum(entry['time'] for entry in st.session_state.response_times) / len(st.session_state.response_times)
-            
-            st.markdown(f"""
-                <div style='background: rgba(30, 40, 70, 0.4); padding: 15px; border-radius: 15px; margin-top: 20px;'>
-                    <h4 style='color: #4a9eff; margin: 0 0 10px 0; text-align: center;'>Performance Metrics</h4>
-                    <div style='text-align: center; color: white;'>
-                        <div style='margin-bottom: 10px;'>
-                            <span style='color: #4a9eff;'>Average Accuracy:</span>
-                            <br>
-                            <span style='font-family: monospace; font-size: 1.2em; color: {
-                                "#4CAF50" if avg_accuracy >= 90 else "#FFA726" if avg_accuracy >= 70 else "#FF5252"
-                            };'>{avg_accuracy:.1f}%</span>
-                        </div>
-                        <div style='margin-bottom: 10px;'>
-                            <span style='color: #4a9eff;'>Average Response Time:</span>
-                            <br>
-                            <span style='font-family: monospace; font-size: 1.2em;'>{avg_time:.3f}s</span>
-                        </div>
-                        <div>
-                            <span style='color: #4a9eff;'>Total Interactions:</span>
-                            <br>
-                            <span style='font-family: monospace; font-size: 1.2em;'>{len(st.session_state.response_times)}</span>
-                        </div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
 
     # Header card
     st.markdown("""
@@ -337,6 +332,9 @@ def main():
                 'type': 'Greeting',
                 'confidence': confidence_score
             })
+            
+            # Display response information after greeting
+            display_response_info()
             return
 
         if prompt.lower().strip() in POSITIVE_FEEDBACK:
@@ -359,6 +357,9 @@ def main():
                 'type': 'Feedback',
                 'confidence': confidence_score
             })
+            
+            # Display response information after feedback
+            display_response_info()
             return
 
         CUSTOM_PROMPT_TEMPLATE = """You are a friendly medical assistant. Provide helpful advice in simple, natural language that a patient would understand.
@@ -409,6 +410,9 @@ def main():
                 'type': 'Medical Query',
                 'confidence': confidence_score
             })
+            
+            # Display response information after medical query
+            display_response_info()
 
         except Exception as e:
             st.error(f"Error: {str(e)}")
@@ -422,6 +426,80 @@ def main():
                 'type': 'Error',
                 'confidence': confidence_score
             })
+            
+            # Display response information after error
+            display_response_info()
+
+def display_response_info():
+    """Function to display response information in the sidebar"""
+    with st.sidebar:
+        if st.session_state.response_times:
+            st.markdown("""
+                <div style='background: rgba(30, 40, 70, 0.4); padding: 15px; border-radius: 15px; margin-top: 20px;'>
+                    <h3 style='color: #4a9eff; margin: 0 0 10px 0; text-align: center;'>Recent Interactions</h3>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            for time_entry in reversed(st.session_state.response_times[-5:]):
+                confidence_score = calculate_confidence_score(time_entry.get('type', 'General'), time_entry['time'])
+                score_color = '#4CAF50' if confidence_score >= 90 else '#FFA726' if confidence_score >= 70 else '#FF5252'
+                
+                st.markdown(f"""
+                    <div style='background: rgba(74, 158, 255, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0; color: white;'>
+                        <div style='margin-bottom: 5px; color: #4a9eff;'>Prompt:</div>
+                        <div style='margin-bottom: 10px; font-size: 0.9em; word-wrap: break-word;'>{time_entry.get('prompt', 'N/A')[:50]}{'...' if len(time_entry.get('prompt', '')) > 50 else ''}</div>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                            <div>
+                                <span style='color: #4a9eff;'>⏱️ Response Time:</span>
+                                <span style='color: #ffffff; font-family: monospace;'>{time_entry['time']:.3f}s</span>
+                            </div>
+                            <div>
+                                <span style='color: #4a9eff;'>🎯 Accuracy:</span>
+                                <span style='color: {score_color}; font-family: monospace; font-weight: bold;'>{confidence_score}%</span>
+                            </div>
+                        </div>
+                        <div style='display: flex; justify-content: space-between; align-items: center;'>
+                            <div style='color: #8b95a9; font-size: 0.9em;'>
+                                <span style='color: #4a9eff;'>📋</span> {time_entry.get('type', 'General')}
+                            </div>
+                            <div>
+                                <span style='color: #4a9eff;'>🕒</span>
+                                <span style='color: #8b95a9; font-size: 0.9em;'>{time_entry['timestamp']}</span>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # Add performance metrics with accuracy
+            total_accuracy = sum(calculate_confidence_score(entry.get('type', 'General'), entry['time']) 
+                               for entry in st.session_state.response_times)
+            avg_accuracy = total_accuracy / len(st.session_state.response_times)
+            avg_time = sum(entry['time'] for entry in st.session_state.response_times) / len(st.session_state.response_times)
+            
+            st.markdown(f"""
+                <div style='background: rgba(30, 40, 70, 0.4); padding: 15px; border-radius: 15px; margin-top: 20px;'>
+                    <h4 style='color: #4a9eff; margin: 0 0 10px 0; text-align: center;'>Performance Metrics</h4>
+                    <div style='text-align: center; color: white;'>
+                        <div style='margin-bottom: 10px;'>
+                            <span style='color: #4a9eff;'>Average Accuracy:</span>
+                            <br>
+                            <span style='font-family: monospace; font-size: 1.2em; color: {
+                                "#4CAF50" if avg_accuracy >= 90 else "#FFA726" if avg_accuracy >= 70 else "#FF5252"
+                            };'>{avg_accuracy:.1f}%</span>
+                        </div>
+                        <div style='margin-bottom: 10px;'>
+                            <span style='color: #4a9eff;'>Average Response Time:</span>
+                            <br>
+                            <span style='font-family: monospace; font-size: 1.2em;'>{avg_time:.3f}s</span>
+                        </div>
+                        <div>
+                            <span style='color: #4a9eff;'>Total Interactions:</span>
+                            <br>
+                            <span style='font-family: monospace; font-size: 1.2em;'>{len(st.session_state.response_times)}</span>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
